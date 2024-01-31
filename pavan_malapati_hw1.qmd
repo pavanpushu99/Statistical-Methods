@@ -6,28 +6,21 @@ editor: visual
 ---
 
 **9.9 Exercises, Problem 2**: Calculate and interpret a 95% confidence interval for the mean age of mothers from the`Gestation`data set from the`mosaicData`package.
-
 **Answer :** To calculate a 95% confidence interval for the mean age of mothers from the "Gestation" dataset, first, we need to load the data and ensure there are no missing values in the age variable. Then, we compute the sample mean and standard deviation of the ages. Next, we calculate the standard error of the mean, determine the z-score associated with a 95% confidence interval, and compute the margin of error. Finally, we construct the confidence interval by subtracting and adding the margin of error to the sample mean. The resulting interval provides an estimated range within which we are 95% confident that the true mean age of mothers lies.
 ```{r}
 #install.packages("mosaicData")
 library(mosaicData)
 data("Gestation")
-
 mv <- sum(is.na(Gestation$age))
 if (mv > 0) {
   Gestation <- Gestation[complete.cases(Gestation$age), ]
 }
-
 ma <- round(mean(Gestation$age),3)
 sda <- round(sd(Gestation$age),3)
-
 e <- sda/sqrt(length(Gestation$age))
-
 #Since it is 95% confidence interval which equals to alpha=0.05 then from the normality table
 z <- 1.96
-
 me <- z*e
-
 ci <- c(ma-me,ma+me)
 round(ci,3)
 ```
@@ -46,13 +39,3 @@ bm <- replicate(1000,{
 ci2 <- quantile(bm,c(0.025,0.975),na.rm = FALSE)                     
 round(ci2,3)    
 ```
-
-**9.10 Supplemental exerises, Problem 2a** Consider the results from the model of`Dist`as a function of`Cond` (first model). Briefly summarize what this model says about the relationship between the wind conditions and the distance travelled by the ball. Make sure to say something sensible about the strength of evidence that there is any relationship at all
-
-**Answer :** The first model solely focused on how wind conditions (Cond) might influence the distance the ball travels (Dist). It hinted at a potential link between wind and distance, suggesting that when there's a tailwind (wind blowing from home plate to outfield), the ball tends to travel around 5.865 feet farther compared to when there's a headwind (wind blowing from outfield to home plate). However, the evidence supporting this finding wasn't very robust. The p-value associated with the CondTail (tailwind) variable was 0.0833, which is higher than the conventional threshold of 0.05 used to determine statistical significance. Thus, we can't confidently conclude that the difference in distances between tailwind and headwind conditions is meaningful based solely on this model.The first model solely focused on how wind conditions (Cond) might influence the distance the ball travels (Dist). It hinted at a potential link between wind and distance, suggesting that when there's a tailwind (wind blowing from home plate to outfield), the ball tends to travel around 5.865 feet farther compared to when there's a headwind (wind blowing from outfield to home plate). However, the evidence supporting this finding wasn't very robust. The p-value associated with the CondTail (tailwind) variable was 0.0833, which is higher than the conventional threshold of 0.05 used to determine statistical significance. Thus, we can't confidently conclude that the difference in distances between tailwind and headwind conditions is meaningful based solely on this model.
-
-**9.10 Supplemental exerises, Problem 2a** Briefly summarize the model that has `Dist` as the response variable and includes the other variables as explanatory variables (second model) by reporting and interpreting the `CondTail` parameter. This second model suggests a somewhat different result for the relationship between `Dist` and `Cond`. Summarize the differences and explain in statistical terms why the inclusion of the other explanatory variables has affected the results.
-
-**Answer :** In contrast, the second model expanded the analysis by incorporating additional variables such as the speed at which the ball was hit (Velocity), the angle at which it was hit (Angle), its weight (BallWt), and its diameter (BallDia), alongside wind conditions (Cond). This comprehensive model yielded a more detailed picture. Here, the coefficient estimate for CondTail was 7.6705, and it was statistically significant with a low p-value of 0.00418. This indicates that when there's a tailwind, the ball tends to travel approximately 7.6705 feet farther compared to when there's a headwind, even after considering these other factors.
-
-The disparity between the results of the two models underscores the importance of considering multiple factors simultaneously. By incorporating additional information, we were able to strengthen the relationship between wind conditions and the distance the ball travels. This enhanced understanding highlights the complex interplay of various factors in determining the outcome and provides more insight into how wind influences the trajectory of the ball.
