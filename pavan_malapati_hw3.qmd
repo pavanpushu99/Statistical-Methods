@@ -1,0 +1,258 @@
+---
+title: "STAT 652 : Homework 3"
+author: "Pavan Malapati"
+format: html
+editor: visual
+---
+
+###11.7 Exercises: Problem 6a
+
+Run Models 3. Decision Tree, using c5.0, 4. Random Forest, 6. Naive Bayes, using training and test datasets, as described in part c of the problem.
+
+The ability to get a good night’s sleep is correlated with many positive health outcomes. The NHANES data set contains a binary variable SleepTrouble that indicates whether each person has trouble sleeping.
+
+For each of the following models:
+
+-   Build a classifier for SleepTrouble
+-   Report its effectiveness on the NHANES training data
+-   Make an appropriate visualization of the model
+-   Interpret the results. What have you learned about people’s sleeping habits?
+
+You may use whatever variables you like, except for SleepHrsNight.
+
+-   Decision Tree,using c5.0
+-   Random Forest
+-   Naive Baye's
+
+First separate the NHANES data set uniformly at random into 75% training and 25% testing sets.
+
+Using training and testing sets is useful for trying to assess the performance of a model on new data. The training set is used to fit the model, and the testing set is used to evaluate its performance on new data.
+
+The data was cleaned by removing columns with a high percentage of missing values. The training and testing sets were created using the initial_split function. The training set contains 75% of the data and the testing set contains 25% of the data. Then rows of data were removed when the target variable was missing.
+
+Further effort should be made to do feature selection and to retry the models to see if the training and testing accuracy can be improved.
+
+The accuracy of the models is as follows: Please note that a seed was not set and when the code is run again the accuracy calculations may change.
+
+###Solution
+
+| Accuracy | Null Model | Decision Tree | Random Forest | Naive Baye's |
+|----------|------------|---------------|---------------|--------------|
+| Training | 0.72       | 0.81          | 0.88          | 0.74         |
+| Testing  | 0.74       | 0.79          | 0.81          | 0.76         |
+
+The table shows how well different types of ML models trained from data. The simplest model, called the null model, guesses the answer that comes up most often without really looking at the data. It's right about 72-74% of the time, which tells us that some answers are much more common than others. A decision tree model, which looks at the data to make its guesses, does better than the null model, getting it right about 79-81% of the time. However, it's not perfect and sometimes guesses better on the data it learned from than on new data it hasn't seen before. The random forest model, which uses lots of decision trees together, is the best at learning from the data with about 88% right on what it learned and 81% right on new data, but it also makes more mistakes on new data than the decision tree. The Naive Bayes model is almost as simple as the null model and gets about 74-76% right, showing it doesn't learn the complex patterns as well as the tree models but is still better than just guessing the most common answer. Overall, the **Random Forest model** is the best at using what it learned to make good guesses on new data, even though it sometimes makes more mistakes than the simpler models.
+
+###Codes and Comments :
+
+##Load necessary packages
+
+```{r}
+library(pacman)
+p_load(tidyverse, tidymodels, yardstick, dotwhisker, mosaic, report, skimr,  
+       glmnet, NHANES, Amelia, naniar,discrim)
+```
+
+##Loading the Data
+
+```{r}
+data(NHANES)
+head(NHANES)
+help("NHANES")
+```
+
+```{r}
+Amelia::missmap(NHANES, main = "Missing values vs observed")
+```
+
+## Cleaning the Data
+
+```{r}
+NHANES2 <- NHANES |> select_if(~mean(!is.na(.)) > 0.5)
+NHANES2 <- NHANES2 %>% select(SleepTrouble,Age,Gender,Depressed,Smoke100n,Poverty,BMI,BPDiaAve)
+Amelia::missmap(NHANES2, main = "Missing values vs observed")
+NHANES2 <- na.omit(NHANES2)
+```
+
+##Splitting the Data into Training and Testing Datasets
+
+```{r}
+set.seed(100)
+parts <- NHANES2 |> initial_split(prop = 0.75)
+train <- parts %>% training()
+test <- parts %>% testing()
+train |> ggplot(aes(x = SleepTrouble)) + geom_bar() + labs(title = "SleepTrouble in Training Data")
+test |> ggplot(aes(x = SleepTrouble)) + geom_bar() + labs(title = "SleepTrouble in Testing Data")
+```
+
+###Model 0 : Null Model
+
+```{r}
+model0 <- null_model()  |>  
+  set_engine("parsnip")  |>  
+  set_mode("classification") |> 
+  fit(SleepTrouble ~ ., data = train)
+```
+
+##Accuracy and Confusion Matrix of Training Data
+
+```{r}
+model0  %>%
+  predict(train) %>%
+  bind_cols(train) %>%
+  metrics(truth = SleepTrouble, estimate = .pred_class)
+```
+
+```{r}
+model0 %>%
+  predict(train) %>%
+  bind_cols(train) %>%
+  conf_mat(truth = SleepTrouble, estimate = .pred_class)
+```
+
+##Accuracy and Confusion Matrix of Training Data
+
+```{r}
+model0  %>%
+  predict(test) %>%
+  bind_cols(test) %>%
+  metrics(truth = SleepTrouble, estimate = .pred_class)
+```
+
+```{r}
+model0 %>%
+  predict(test) %>%
+  bind_cols(test) %>%
+  conf_mat(truth = SleepTrouble, estimate = .pred_class)
+```
+
+###Model 1 : Decision Tree c5.0
+
+```{r}
+model1 <- boost_tree(trees = 20) %>% 
+  set_engine("C5.0") %>%
+  set_mode("classification") %>%
+  fit(SleepTrouble ~ ., data = train)
+```
+
+##Accuracy and Confusion Matrix of Training Data
+
+```{r}
+model1 %>%
+  predict(train) %>%
+  bind_cols(train) %>%
+  metrics(truth = SleepTrouble, estimate = .pred_class)
+```
+
+```{r}
+model1 %>%
+  predict(train) %>%
+  bind_cols(train) %>%
+  conf_mat(truth = SleepTrouble, estimate = .pred_class)
+```
+
+##Accuracy and Confusion Matrix of Testing Data
+
+```{r}
+model1 %>%
+  predict(test) %>%
+  bind_cols(test) %>%
+  metrics(truth = SleepTrouble, estimate = .pred_class)
+```
+
+```{r}
+model1 %>%
+  predict(test) %>%
+  bind_cols(test) %>%
+  conf_mat(truth = SleepTrouble, estimate = .pred_class)
+```
+
+###Model 2 : Random Forest
+
+```{r}
+model2 <- rand_forest(trees = 100) %>%
+  set_engine("ranger") %>%
+  set_mode("classification") %>%
+  fit(SleepTrouble ~ ., data = train)
+```
+
+##Accuracy and Confusion matrix of Training Data
+
+```{r}
+model2%>%
+  predict(train) %>%
+  bind_cols(train) %>%
+  metrics(truth = SleepTrouble, estimate = .pred_class)
+```
+
+```{r}
+model2 %>%
+  predict(train) %>%
+  bind_cols(train) %>%
+  conf_mat(truth = SleepTrouble, estimate = .pred_class)
+```
+
+##Accuracy and Confusion Matrix of Testing Data
+
+```{r}
+model2%>%
+  predict(test) %>%
+  bind_cols(test) %>%
+  metrics(truth = SleepTrouble, estimate = .pred_class)
+```
+
+```{r}
+model2%>%
+  predict(test) %>%
+  bind_cols(test) %>%
+  conf_mat(truth = SleepTrouble, estimate = .pred_class)
+```
+
+###Model 3 : Naive Baye's
+
+```{r}
+model3 <- naive_Bayes(Laplace = 1) %>% 
+  set_engine("klaR") %>%
+  set_mode("classification") %>%
+  fit(SleepTrouble ~ ., data = train)
+```
+
+##Accuracy and Confusion Matrix for the training Data.
+
+```{r}
+suppressWarnings({
+  model3 %>%
+    predict(train) %>%
+    bind_cols(train) %>%
+    metrics(truth = SleepTrouble, estimate = .pred_class)
+})
+```
+
+```{r}
+suppressWarnings({
+  model3 %>%
+    predict(train) %>%
+    bind_cols(train) %>%
+    conf_mat(truth = SleepTrouble, estimate = .pred_class)
+})
+```
+
+##Accuracy and Confusion Matrix for the testing Data.
+
+```{r}
+suppressWarnings({
+  model3 %>%
+    predict(test) %>%
+    bind_cols(test) %>%
+    metrics(truth = SleepTrouble, estimate = .pred_class)
+})
+```
+
+```{r}
+suppressWarnings({
+  model3 %>%
+    predict(test) %>%
+    bind_cols(test) %>%
+    conf_mat(truth = SleepTrouble, estimate = .pred_class)
+})
+```

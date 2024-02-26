@@ -1,0 +1,49 @@
+---
+title: "STAT 652 : HOMEWORK 2B"
+author: "PAVAN MALAPATI"
+format: html
+editor: visual
+---
+
+Problem 6 : The ability to get a good night’s sleep is correlated with many positive health outcomes. The NHANES data set contains a binary variable SleepTrouble that indicates whether each person has trouble sleeping.
+
+b)Repeat the previous exercise, but now use the quantitative response variable SleepHrsNight. Build and interpret the following models Null Model,Multiple Linear Regression and Decision Tree
+
+Answer :
+Cleaning the data and dividing into training and testing sets
+```{r}
+library(pacman)
+library(dplyr)
+library(rpart)
+library(rpart.plot)
+p_load(NHANES, Amelia, naniar, DataExplorer, tidyverse)
+data("NHANES")
+nhd <- NHANES %>%
+  select(SleepHrsNight,SleepTrouble, Gender, Age, Depressed, SmokeNow)%>%
+  na.omit()
+trdi <- sample(nrow(nhd), 0.75 * nrow(nhd))
+trd <- nhd[trdi, ]
+ted <- nhd[-trdi, ]
+```
+
+1.NULL MODEL
+```{r}
+nm <- lm(SleepHrsNight~1,data=trd)
+summary(nm)
+```
+*Interpretation of Results :* In this null model, we're looking at the baseline relationship between SleepHrsNight (the number of hours slept per night) and no other variables. The coefficient for the Intercept is estimated to be approximately 6.74 hours, indicating the average number of hours slept per night when no other variables are involved. The standard error of about 0.03 suggests the potential variability of our estimate due to random fluctuations in the data. The large t-value of 221.9 implies that the Intercept coefficient is highly statistically significant, indicating that the average sleep duration significantly differs from zero. This null model serves as a fundamental reference point for understanding sleep duration in the dataset, solely based on the Intercept.
+
+2. Multiple Regression Model 
+```{r}
+mrm <- lm(SleepHrsNight~SleepTrouble+Gender+Age+Depressed+SmokeNow,data=trd)
+summary(mrm)
+```
+*Interpretation of Result :* The regression analysis results reveal significant effects of several predictors on the response variable, SleepHrsNight. Notably, individuals without sleep trouble tend to sleep approximately 0.54 hours more than those who experience sleep trouble. Being male is associated with a decrease in sleep duration by approximately 0.21 hours compared to being female. Moreover, each additional year of age correlates weakly but significantly with a 0.004 hour increase in sleep. Additionally, individuals reporting no depression or several depressive symptoms tend to sleep longer compared to those with more severe depression. However, the coefficients for predictors such as SleepTroubleYes, Gendermale, DepressedMost, and SmokeNowYes are not defined due to singularities, likely indicating perfect multicollinearity or insufficient variation in the data to estimate their effects accurately.
+
+3.Decision Tree 
+```{r}
+f <- formula(SleepHrsNight~.)
+dtm <- rpart(f,data=trd)
+rpart.plot(dtm, box.palette = "lightgreen", shadow.col = "gray", cex = 1)
+```
+*Interpretation of Results :* The decision tree model focuses on predicting the number of sleeping hours per night (SleepHrsNight) using several factors: SleepTrouble, Gender, Age, Depressed, and Smokenow. However, it only considers SleepTrouble, Age, and Depressed as predictors, excluding Gender and Smokenow. This exclusion might be due to their limited impact on predicting sleep hours compared to the selected variables. Initially, the model divides the data based on SleepTrouble, where the "yes" category represents 33% of the observations, while the "no" category constitutes 67%. For the latter, further classification is based on Age. Among individuals aged over 65, they account for 14% of the dataset. For those under 65, the model uses Depressed to classify them: 50% are classified as having the most depression, and 2% are classified as having less depression.

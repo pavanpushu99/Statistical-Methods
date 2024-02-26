@@ -1,0 +1,226 @@
+---
+title: "STAT 652 : Homework 2A"
+author: "Pavan Malapati"
+format: html
+editor: visual
+---
+
+Problem 1: Investigators in the HELP (Health Evaluation and Linkage to Primary Care) study were interested in modeling the probability of being homeless (one or more nights spent on the street or in a shelter in the past six months vs. housed) as a function of age.
+
+a)  Generate a confusion matrix for the null model and interpret the result.
+
+*Answer :*
+
+```{r}
+library(mosaicData)
+library(caret)
+data("HELPrct")
+hld <- HELPrct[c("age", "homeless")]
+mc <- names(sort(table(hld$homeless),decreasing = TRUE))[1]
+np <- rep(mc, nrow(hld))
+np <- factor(np, levels = levels(hld$homeless))
+cm <- confusionMatrix(factor(hld$homeless), np)
+print(cm)
+```
+
+The confusion matrix shows that all instances of the "homeless" class were incorrectly predicted as "housed," resulting in 209 false negatives. Additionally, the model predicted none of the instances correctly as "housed," leading to 0 true positives. This indicates a failure to correctly classify any instances in the dataset, illustrating a lack of sensitivity in the model's predictions. This error is classified as a *Type 2 error*, where the model fails to detect the presence of the "homeless" class.
+
+b)  Fit and interpret logistic regression model for the probability of being homeless as a function of age.
+
+*Answer :*
+
+```{r}
+nm <- glm(homeless ~ age, data = hld, family = binomial)
+summary(nm)
+```
+
+The logistic regression model shows that age is significantly associated with the probability of being homeless (p = 0.0685). Specifically, for each one-unit increase in age, the log odds of being homeless decrease by 0.02248. However, the p-value for age is slightly above the conventional threshold of 0.05, suggesting a borderline significance. The intercept of 0.95724 represents the estimated log odds of being homeless when age is zero, but since age cannot be zero in practical terms, interpretation of this value should be cautious. Overall, the model's goodness of fit is reasonable, as indicated by the deviance statistics and AIC value.
+
+c)  What is the predicted probability of being homeless for a 20 year old? For a 40 year old?
+
+*Answer :*
+
+```{r}
+#From the 1.b logistic regression model
+i <- 0.95724
+ca <- -0.02248
+lp20 <- i + ca*20
+lp40 <- i + ca*40
+p20 <- exp(lp20) / (1 + exp(lp20))
+p40 <- exp(lp40) / (1 + exp(lp40))
+cat("Predicted probability of being homeless for a 20-year-old:", round(p20,3), "\n")
+cat("Predicted probability of being homeless for a 40-year-old:", round(p40,3), "\n")
+```
+
+d)  Generate a confusion matrix for the second model and interpret the result.
+
+*Answer :*
+
+```{r}
+p <- predict(nm, type = "response")
+pc <- ifelse(p > 0.5, "homeless", "housed")
+cm <- confusionMatrix(factor(hld$homeless), factor(pc))
+print(cm)
+```
+
+The confusion matrix of the logistic regression model reveals that it correctly predicted 161 instances of the "homeless" class and 35 instances of the "housed" class. However, it incorrectly classified 48 instances of the "homeless" class as "housed" and 209 instances of the "housed" class as "homeless." This results in an accuracy of 0.4327, indicating that the model's performance is slightly better than random chance. Comparatively, the null hypothesis model incorrectly predicted all instances as belonging to the majority class, resulting in 209 false negatives and 0 true positives. This simplistic model lacks the ability to capture any meaningful patterns or relationships in the data, yielding significantly poorer performance than the logistic regression model.
+
+Problem 2 : The nasaweather package contains data about tropical storms from 1995–2005. Consider the scatterplot between the wind speed and pressure of these storms shown below.
+
+```{r}
+library(mdsr)
+library(nasaweather)
+ggplot(data = storms, aes(x = pressure, y = wind, color = type)) +
+  geom_point(alpha = 0.5)
+```
+
+The type of storm is present in the data, and four types are given: extratropical, hurricane, tropical depression, and tropical storm. There are complicated and not terribly precise definitions for storm type. Build a classifier for the type of each storm as a function of its wind speed and pressure.
+
+*Answer :*
+
+```{r}
+library(rpart)
+library(ggplot2)
+data(storms)
+set.seed(123)
+ti <- sample(1:nrow(storms), 0.7 * nrow(storms))
+trd <- storms[ti, ]
+mod_tree <- rpart(type ~ wind + pressure, data = trd)
+par(mfrow=c(1,1), mar=c(5,5,2,2))
+plot(mod_tree, uniform=TRUE, main="Decision Tree", branch=1.0, compress=TRUE, margin=0.1)
+text(mod_tree, use.n=FALSE, all=FALSE)
+```
+
+*Explanation of Code :* This code snippet employs R libraries to construct and display a decision tree model using data on storms. It first divides the dataset into training and testing subsets, using 70% of the data for training. The decision tree model is then trained to predict storm types based on two attributes: wind and pressure. The *plot()* function generates a graphical representation of the decision tree, adjusting parameters for better visualization. Additionally, the *text()* function is utilized to eliminate text within the nodes and along the branches, enhancing the clarity of the plot. In essence, the code facilitates the creation and visualization of a decision tree model to analyze and predict storm types using relevant meteorological features.
+
+Why would a decision tree make a particularly good classifier for these data?
+
+*Answer :* A decision tree is well-suited for classifying storm types based on wind speed and pressure due to its ability to handle mixed data types and capture non-linear relationships. With the target variable, storm type, being categorical, decision trees are ideal for classifying the four different storm types: extra tropical, hurricane, tropical depression, and tropical storm. Moreover, decision trees offer interpretability, enabling stakeholders to understand the classification process easily. Additionally, their robustness to outliers and noise ensures reliable performance, crucial for meteorological data analysis.
+
+Visualize your classifier in the data space ?
+
+*Answer :*
+
+```{r}
+storms$Predicted_Type <- predict(mod_tree, newdata = storms, type = "class")
+ggplot(data = storms, aes(x = pressure, y = wind, color = Predicted_Type)) +
+  geom_point(alpha = 0.5) + 
+  labs(x = "Pressure", y = "Wind Speed", title = "Classifier Visualization: Storm Types")
+```
+
+Problem 3 : The ability to get a good night’s sleep is correlated with many positive health outcomes. The NHANES data set contains a binary variable SleepTrouble that indicates whether each person has trouble sleeping.
+
+a)Null Model
+
+```{r}
+library(NHANES)
+library(mdsr)
+library(dplyr)
+library(caret)
+library(tidyverse)
+library(tidymodels)
+library(GGally)
+library(pacman)
+library(class)
+library(gmodels)
+data("NHANES")
+head(NHANES)
+nhd <-  NHANES %>%
+  select(SleepTrouble,Gender,Age,Depressed,SmokeNow) %>%
+  na.omit()
+
+set.seed(143)
+trd <- nhd %>% sample_frac(size = 0.75)
+ted <- nhd %>% setdiff(trd)
+
+nm1 <- glm(SleepTrouble~1,data=trd,family=binomial)
+nm1
+
+pt <- predict(nm1, newdata = trd, type = "response") > 0.5
+pt <- factor(pt, levels = c("TRUE", "FALSE"), labels = c("Yes", "No"))
+at <- mean(pt == trd$SleepTrouble)
+cat("\nAccuracy of training data:", at,"\n")
+
+pn <- predict(nm1, newdata = ted, type = "response",decrease=FALSE) > 0.5
+ted$SleepTrouble <- factor(ted$SleepTrouble, levels = c("Yes", "No"))
+pn <- factor(pn, levels = c("TRUE", "FALSE"), labels = c("Yes", "No"))
+cm1 <- confusionMatrix(data = pn, reference = ted$SleepTrouble)
+cm1
+```
+
+*Explanation of code :* This code is using the NHANES dataset, which contains information about individuals' sleep troubles, gender, age, depression status, and smoking habits. It first splits the data into a training set (`trd`) and a test set (`ted`). Then, it fits a simple logistic regression model (`nm1`) to predict sleep trouble based on just a constant term (null model). It computes the accuracy of this null model on the training data by comparing its predictions (`pt`) with the actual sleep trouble labels in the training set (`trd$SleepTrouble`). Afterward, it predicts sleep trouble on the test set (`ted`) using the fitted null model and calculates a confusion matrix (`cm1`) to evaluate the model's performance on unseen data. Finally, it prints out the accuracy of the training data and the confusion matrix of the test data. Overall, the code demonstrates how to fit a basic model, evaluate its accuracy on training data, and assess its performance on unseen data using a confusion matrix.
+
+*Interpretation of Results :* The null model fitted to the NHANES training data achieved an accuracy of approximately 67%, suggesting moderate predictive ability. However, when applied to the test data, the model performed poorly, failing to correctly predict any instances of sleep trouble. The confusion matrix revealed a high rate of false negatives which is Type 2 error, indicating that the model struggled to identify individuals with sleep trouble. This suggests that the null model, which only considers a constant term, lacks the complexity needed to accurately predict sleep trouble status. To build a more effective predictive model, additional variables should be incorporated to capture the multifaceted nature of people's sleeping habits.
+
+b)Logistic Regression Model
+
+```{r}
+lm1 <- glm(SleepTrouble~Gender+Age+Depressed+SmokeNow,data=trd,family=binomial)
+lm1
+dr <- residuals(lm1, type = "deviance")
+pp <- predict(lm1, newdata = trd, type = "response")
+plot(pp, dr,xlab = "Predicted Probabilities", ylab = "Deviance Residuals",main = "Residual Plot for Logistic Regression Model",pch = 20, col = "blue")
+abline(h = 0, col = "red", lty = 2)
+```
+
+*Explanation of Code :* This code fits a logistic regression model (`lm1`) to the training data (`trd`), where the outcome variable is SleepTrouble, and the predictors are Gender, Age, Depressed, and SmokeNow. It then calculates the deviance residuals (`dr`) and predicted probabilities (`pp`) using this model. The code then creates a scatter plot with predicted probabilities on the x-axis and deviance residuals on the y-axis, providing a visual representation of the model's performance. The red dashed line represents the zero residual line, aiding in the interpretation of the residuals' distribution. Overall, the plot helps in assessing the fit and performance of the logistic regression model.
+
+*Interpretation of Results :*The logistic regression model indicates that all predictor variables (Gender, Age, Depressed, and SmokeNow) except for SmokeNowYes have statistically significant effects on the likelihood of experiencing sleep trouble. Specifically, being male, having higher levels of depression (Several or Most), and being older are associated with increased odds of experiencing sleep trouble, while SmokeNowYes is associated with decreased odds. The model overall has improved upon the null model, as indicated by the reduction in residual deviance from 2737 to 2594 and a decrease in AIC from 2739 to 2606.
+
+*Visualisation of Model :* I choose residual plot for better visualisation of null model because Residual plots can help diagnose issues with model fit by visualizing the residuals (errors) versus the predicted values or predictor variables. They can reveal patterns or trends in the residuals that indicate problems with the model assumptions.The residual plot indicates that the logistic regression model exhibits a systematic pattern in its errors. Specifically, it tends to underestimate the probability of positive outcomes, particularly for instances where the model is more confident in its predictions. This suggests that the model may be overlooking important factors that influence the outcome, but despite its imperfections, it still holds potential utility for making predictions.
+
+c.KNN Model
+
+```{r}
+library(NHANES)
+library(Amelia)
+library(naniar)
+library(DataExplorer)
+library(tidyverse)
+library(ggplot2)
+data("NHANES")
+nhd <- NHANES %>%
+  select(SleepTrouble, Gender, Age, Depressed, SmokeNow)
+nhd <- na.omit(nhd)
+set.seed(123)  
+nhs <- initial_split(nhd, prop = 3/4)
+nhtr1 <- training(nhs)
+nhte1 <- testing(nhs)
+nhtel <- nhte1$SleepTrouble
+
+ctrl <- trainControl(method = "cv", number = 5)
+k <- 1  
+knn_model <- train(SleepTrouble ~ Gender + Age + Depressed + SmokeNow, data = nhtr1,
+                   method = "knn", trControl = ctrl, tuneGrid = expand.grid(k = k))
+predictions <- predict(knn_model, newdata = nhte1)
+
+conf_matrix <- table(nhtel, predictions)
+conf_matrix
+acc <- sum(diag(conf_matrix)) / sum(conf_matrix)
+acc
+
+k_v <- seq(1, 20, by = 1)
+cv_r <- sapply(k_v, function(k) {
+  knn_m <- train(SleepTrouble ~ Gender + Age + Depressed + SmokeNow,
+                     data = nhtr1,
+                     method = "knn",
+                     trControl = ctrl,
+                     tuneGrid = data.frame(k = k))
+  mean(knn_m$results$Accuracy)
+})
+cv_pd <- data.frame(k = k_v, Accuracy = cv_r)
+
+# Cross_Validation plot for better visualisation
+ggplot(cv_pd, aes(x = k, y = Accuracy)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Number of Neighbors (k)", y = "Accuracy", 
+       title = "Cross-Validation Plot for KNN Model") +
+  theme_minimal()
+```
+
+*Explanation of code :*The code utilizes the K-nearest neighbors (KNN) algorithm to classify the likelihood of experiencing sleep trouble based on features from the NHANES dataset, including gender, age, depression status, and smoking habits. Initially, the data is prepared by selecting relevant variables, handling missing values, and splitting it into training and testing sets with a seed set for reproducibility. The model is then trained using 5-fold cross-validation and initialized with k=1. Evaluation involves predicting on the test set, constructing a confusion matrix, and calculating accuracy. A cross-validation plot is generated to visualize how accuracy changes across different values of k (1 to 20), aiding in identifying the optimal k value that balances bias and variance. Overall, the code demonstrates the workflow of training, evaluating, and optimizing a KNN model for sleep trouble classification on the NHANES dataset.
+
+*Interpretation of Results :* The confusion matrix indicates that out of 722 instances in the test set, 404 were correctly classified as "No" for sleep trouble, while 91 were correctly classified as "Yes". However, there were 148 instances incorrectly classified as "No" when they were actually "Yes", and 79 instances incorrectly classified as "Yes" when they were actually "No". The overall accuracy of the KNN model is approximately 68.56%, suggesting its effectiveness in predicting sleep trouble based on the given features.
+
+*Cross-Validation Plot :* The cross-validation plot illustrates the relationship between the number of neighbors (k) and the accuracy of the KNN model, aiding in the selection of the optimal k value. From the plot, it is evident that the accuracy fluctuates with different values of k. In this case, the plot highlights that a k value of *11* corresponds to the highest accuracy of approximately 0.685. This accurate k value serves as a valuable insight for model selection, indicating the configuration that maximizes predictive performance. Overall, the plot provides clarity regarding the impact of varying k values on model accuracy, facilitating informed decision-making in model tuning and optimization.

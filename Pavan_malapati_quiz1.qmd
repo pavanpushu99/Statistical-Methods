@@ -1,0 +1,210 @@
+---
+title: "Stat 652 : Quiz 1"
+author: "Pavan Malapati"
+format: pdf
+editor: visual
+---
+
+1.  The table below provides a training data set containing six observations, three predictors, and one qualitative response variable.
+
+```{r}
+q <- data.frame(Obs = 1:6,
+  X1 = c(0, 2, 0, 0, -1, 1),
+  X2 = c(3, 0, 1, 1, 0, 1),
+  X3 = c(0, 0, 3, 2, -1, 1),
+  Y = c("Red", "Red", "Red", "Green", "Green", "Red"))
+```
+
+a.Compute the Euclidean distance between each observation and the test point, X1 = X2 = X3 = 0. *Answer :*
+
+```{r}
+tp <- data.frame(X1 = 0, X2 = 0, X3 = 0)
+ed <- function(x1, x2, x3, y1, y2, y3) {sqrt((x1 - y1)^2 + (x2 - y2)^2 + (x3 - y3)^2)}
+q$d <- ed(q$X1, q$X2, q$X3, tp$X1, tp$X2, tp$X3)
+cat("Euclidean distances:\n", q$d, "\n")
+```
+
+b.What is our prediction with K = 1? Why ? 
+*Answer :*
+
+```{r}
+q_s <- q[order(q$d), ]
+p_k1 <- q_s$Y[1]
+cat("Prediction with K = 1:", p_k1, "\n")
+```
+
+In this question the value of k is 1 which represents we should consider 1 nearest neighbour and for the test point (0,0,0), the nearest neighbour is 5th observation which is green with a distance of square root of 2
+
+c.What is our prediction with K = 3? Why? 
+*Answer:*
+
+```{r}
+p_k3 <- q_s$Y[1:3]
+cc <- table(p_k3)
+mpk3 <- max(cc)
+mc <- names(cc[cc==mpk3])
+cat("Prediction with K = 3:",mc, "\n")
+```
+
+Generally the k-value should be the square root of total observations will be the accurate one.In this question the value of k is 3 which means we should consider the 3 nearest neighbours near the test point(0,0,0), The 3 nearest neighbours are the observations 2,5,6 which are green,red and red.So we should group the new test point into majority out of 3 which red.
+
+With Normalisation 
+a.Compute the Euclidean distance between each observation and the test point, X1 = X2 = X3 = 0. *Answer :*
+
+```{r}
+nor <- function(p){
+  return((p - min(p)) / (max(p) - min(p)))
+}
+q_nor <- q
+q_nor$X1 <- nor(q$X1)
+q_nor$X2 <- nor(q$X2)
+q_nor$X3 <- nor(q$X3)
+q_nor$Y <- q$Y
+q_nor$d <- ed(q_nor$X1,q_nor$X2,q_nor$X3,tp$X1,tp$X2,tp$X3)
+cat("Euclidean distances after normalisation:\n", q_nor$d, "\n") 
+```
+
+b)What is our prediction with K = 1? 
+*Answer :*
+
+```{r}
+q_nor <- q_nor[order(q_nor$d), ]
+pq_k1 <- q_nor$Y[1]
+cat("Prediction with K = 1 after normalisation:", pq_k1, "\n")
+```
+
+There is no difference between the output before and after normalisation.
+
+c)What is our prediction with K = 3?
+
+```{r}
+pq_k3 <- q_nor$Y[1:3]
+cc1 <- table(pq_k3)
+mpqk3 <- max(cc1)
+mqc <- names(cc1[cc1==mpqk3])
+cat("Prediction with K = 3 After Normalisation:",mqc, "\n")
+```
+
+Yes the results differ, The output for k=3 is different before normalisation it was red and after normalisation it was green.
+
+2.Run the R code using the best subset regression code the olsrr, from the rsquaredacademy, and leaps packages. This question demonstrates the use of automating the model selection process by fitting all possible regressions and picking the best model using a criteria/metric such as Adjusted R-squared or AIC.
+
+```{r}
+library(pacman)
+p_load(tidyverse, ISLR2, skimr, DataExplorer, olsrr, leaps)
+```
+
+## AutoEDA: Automatically explore the dataset.
+
+Remove the name column from the Auto dataset because it is a unique identifier and not a predictor.
+
+```{r}
+Auto <- Auto |> select(-name)
+```
+
+Automatically generate a report of the dataset
+
+```{r}
+skimr::skim(Auto)
+```
+
+```{r}
+Auto |> DataExplorer::create_report()
+```
+
+## All possible subsets regression
+
+To use the *olsrr* function *ols_step_all_possible()* the model must be created using the *lm()* function. The *ols_step_all_possible()* function will return a list of models with the adjusted R-squared and AIC for each model. The *plot()* function can be used to visualize the results.
+
+```{r}
+model <- lm(mpg ~ ., data = Auto)
+summary(model)
+```
+
+### [olsrr](https://olsrr.rsquaredacademy.com/) package
+
+```{r}
+k <- ols_step_all_possible(model)
+k
+```
+
+```{r}
+# plot
+plot(k)
+```
+
+```{r}
+which.max(k$adjr)
+
+which.min(k$aic)
+```
+
+Find the model with the highest adjusted R-squared and the lowest AIC.
+
+```{r}
+x <- which.max(k$adjr)
+x
+k |> filter(mindex == 120)
+```
+
+*Question 1 :*What is the best model for the Auto data based on the adjusted R-squared?
+*Answer :* Model number 120 has an adjusted R-squared value of 0.8211691, which means it explains about 82% of the variability in the data. This suggests that the model is quite effective in predicting a car's fuel efficiency based on various factors, such as size, weight, production year, and origin. A higher adjusted R-squared value indicates a better fit of the model to the data, indicating strong predictive power.
+
+```{r}
+k |> group_by(n) |> 
+  reframe('index' = mindex, max_adjr = max(adjr), min_aic = min(aic)) |> 
+  arrange(desc(max_adjr), min_aic) |> 
+  head(10)
+```
+
+Instead of running all regression models, the *ols_step_best_subset()* function can be used to find the best subset of predictors for the mpg variable. The *plot()* function can be used to visualize the results.
+
+```{r}
+model <- lm(mpg ~ ., data = Auto)
+
+k <- ols_step_best_subset(model)
+k
+
+plot(k)
+```
+
+### leaps package
+
+The leaps package uses a different approach to find the best subset of predictors for the mpg variable. The *regsubsets()* function is used to find the best subset of predictors for the mpg variable using the leaps algorithm.
+
+```{r}
+model2 <- lm(mpg ~ ., data = Auto)
+summary(model2)
+```
+
+```{r}
+Best_Subset <- regsubsets(mpg ~ .,
+               data = Auto,
+               nbest = 1,      # 1 best model for each number of predictors
+               nvmax = NULL,    # NULL for no limit on number of variables
+               force.in = NULL, force.out = NULL,
+               method = "exhaustive")
+
+summary_best_subset <- summary(Best_Subset)
+
+as.data.frame(summary_best_subset$outmat)
+```
+
+```{r}
+which.max(summary_best_subset$adjr2)
+```
+
+```{r}
+summary_best_subset$which[6,]
+```
+
+Run the regression model with the best predictors
+
+```{r}
+best.model <- lm(mpg ~ cylinders + displacement + horsepower + weight + year + origin, data = Auto)
+
+summary(best.model)
+```
+
+*Question 2 :*What variable(s) are not included in the best model? Are there any variables in the best model that you would drop from the model and why? 
+*Solution :*In the model provided, the variable "acceleration" is not included, meaning it's not considered as a predictor of the car's miles per gallon (mpg). However, all other variables—cylinders, displacement, horsepower, weight, year, and origin—are part of the model. Among these, "cylinders" stands out because it has a p-value of 0.117236, which is higher than the conventional threshold of 0.05. A higher p-value suggests that the variable may not have a significant impact on predicting mpg. Thus, some might consider dropping "cylinders" from the model to make it simpler without losing much predictive power. However, this decision could depend on various factors, including the specific goals of the analysis and the trade-off between model simplicity and accuracy.
