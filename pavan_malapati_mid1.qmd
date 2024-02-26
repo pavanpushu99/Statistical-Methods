@@ -1,0 +1,398 @@
+---
+title: "STAT 652  : Midterm 1"
+author: "Pavan Malapati"
+format: html
+editor: visual
+---
+
+# Midterm
+
+### Question 1
+
+Clearly state the 5 steps for applying Machine Learning to a problem.
+
+### **Answer:**
+
+**Step 1 : Define your Goal :** Clearly identify what you want to achieve with your machine learning project. Decide if your project will use classification to categorize data or regression to predict numerical values. This clarity helps focus your efforts from the beginning.
+
+**Step 2 : Prepare your Data :** This step is all about getting your data ready and is often the most time-consuming part. It involves:
+
+a\) Getting Data: Collect relevant data from various sources, such as databases, APIs, or public datasets on the internet.
+
+b\) Cleaning and Exploring Data: Examine your data closely to understand its characteristics and clean it by fixing or removing any inaccuracies, missing values, or irrelevant information.
+
+c\) Splitting Data: Divide your data into two parts: one for training your model (typically 70-80% of the data) and the other for testing it (20-30%). This split helps in evaluating your model's performance on data it hasn't seen before.
+
+d\) Choosing Features: Identify which aspects of your data are important for making predictions and focus on those as inputs for your model.
+
+e\) Feature Engineering: Modify existing features or create new ones to make your data more informative for the model, enhancing its ability to learn and make accurate predictions
+
+**Step 3 : Build the Model :** Use the training data to develop your model. This includes choosing a simple model as a baseline and then selecting the target variable (what you're predicting) and the type of prediction (classification or regression). Train your model on the training dataset, allowing it to learn from this data. Select an appropriate algorithm and set its hyperparameters, considering your project goals and the characteristics of your data.
+
+**Step 4 : Tune the Model :** After training, assess your model's performance using the testing data. This phase involves:
+
+a\) Evaluating the model with metrics appropriate to your project type, such as accuracy for classification or mean squared error and R-squared for regression.
+
+b\) Adjusting the model to address overfitting if it performs well on the training data but poorly on the testing data. Techniques like regularization can simplify the model to make it more generalizable.
+
+**Step 5 : Interpret the Model :** Understanding why your model makes certain predictions is crucial, especially for complex models:
+
+a\) Partial Dependence Plots: Illustrate the influence of individual features on the model's predictions.
+
+b\) Subpopulation Analysis: Determine if the model performs consistently across different groups within the testing data.
+
+c\) Individual Prediction Explanations: Offer insights into the reasons behind specific predictions, enhancing transparency and trust in the model.
+
+Reference : https://blog.dataiku.com/key-steps-machine-learning-process
+
+
+### Question 2
+
+**Answer : ** 
+
+##loading the necessary packages
+```{r}
+library(pacman)
+library(C50)
+library(ranger)
+library(discrim)
+library(klaR)
+library(dplyr)
+library(e1071)
+library(janitor)
+library(tidyverse)
+library(tidymodels)
+library(forcats)
+library(rsample)
+library(recipes)
+library(yardstick)
+library(ggplot2)
+```
+
+## Loading the Data
+```{r}
+set.seed(108)
+library(titanic)
+data(titanic_train)
+data(titanic_test)
+```
+
+##Exploring the Data
+```{r}
+library(naniar)
+naniar::gg_miss_var(titanic_train)
+naniar::gg_miss_var(titanic_test)
+```
+
+##Cleaning the Data
+```{r}
+titanic_train <- titanic_train %>% clean_names()
+titanic_test <- titanic_test %>% clean_names()
+```
+
+##Checking the Datatypes of the columns in Data
+```{r}
+train_data <- titanic_train %>% dplyr::select(-passenger_id, -name, -ticket, -cabin) %>%
+  mutate(
+    survived = as_factor(survived),
+    pclass = as_factor(pclass),
+    sex = as_factor(sex),
+    embarked = as_factor(embarked)
+  )
+titanic_test <- titanic_test %>% dplyr :: select(-passenger_id, -name, -ticket, -cabin) %>%
+  mutate(
+    pclass = as_factor(pclass),
+    sex = as_factor(sex),
+    embarked = as_factor(embarked)
+  )
+```
+
+##Splitting the data
+
+```{r}
+train_split <- initial_split(train_data, prop = 0.8)
+test_split <- train_split %>% testing()
+```
+
+Create the recipe for applying the pre-processing.  Note the use of step_nzv(), which removes any columns that have very low variability, and the use of the step_mean_impute() function, which fills in the cells that are missing with the mean of the column.
+
+```{r}
+recipe <- training(train_split) %>%
+  recipe(survived ~ .) %>%
+  step_rm(pclass, sex, embarked) %>% 
+  step_nzv(all_predictors()) %>%
+  step_impute_mean(age) %>%
+  prep()
+```
+
+```{r}
+train_test <- recipe %>%
+  bake(testing(train_split)) 
+train_main <- juice(recipe)
+```
+
+### Model 0: Null Model
+
+First, it creates a basic model (model0) without any specific machine learning algorithm (a "null model") to classify whether someone survived or not, using a dataset named train_main. Then, it uses this model to make predictions on another dataset (train_test), combines these predictions with the original data, and calculates how accurate the predictions are. Finally, it creates a confusion matrix to visually show the correct and incorrect predictions by comparing them to the actual outcomes.
+
+```{r}
+model0 <- null_model()  |>  
+  set_engine("parsnip")  |>  
+  set_mode("classification") |> 
+  fit(survived ~ ., data = train_main)
+```
+
+```{r}
+model0  %>%
+  predict(train_test) %>%
+  bind_cols(train_test) %>%
+  metrics(truth = survived, estimate = .pred_class)
+```
+
+```{r}
+model0 %>%
+  predict(train_test) %>%
+  bind_cols(train_test) %>%
+  conf_mat(truth = survived, estimate = .pred_class)
+```
+
+### 1 Model: kNN Model
+
+The number "11" refers to the number of neighbors considered by the model to make a prediction; this means for any given data point, the model looks at the 11 closest points in the training dataset to decide the outcome (survived or not).
+
+```{r}
+ model1 <- nearest_neighbor(neighbors = 11) %>% 
+  set_engine("kknn") %>%
+  set_mode("classification") %>%
+  fit(survived ~ ., data = train_main)
+```
+
+```{r}
+  model1 %>%
+  predict(train_test) %>%
+  bind_cols(train_test) %>%
+  metrics(truth = survived, estimate = .pred_class)
+```
+
+```{r}
+model1 %>%
+  predict(train_test) %>%
+  bind_cols(train_test) %>%
+  conf_mat(truth = survived, estimate = .pred_class)
+```
+
+```{r}
+model1 %>%
+  predict(train_test, type = "prob") %>%
+  bind_cols(train_test) %>%
+  ggplot() +
+  geom_density(aes(x = .pred_1, fill = survived), 
+               alpha = 0.5)
+```
+
+### Model 2: C5.0
+
+The number "20" specifies that the boosted model should use 20 individual decision trees to make its predictions, combining their results to improve accuracy and reduce errors.
+
+```{r}
+model2 <- boost_tree(trees = 20) %>% 
+  set_engine("C5.0") %>%
+  set_mode("classification") %>%
+  fit(survived ~ ., data = train_main)
+```
+
+```{r}
+model2 %>%
+  predict(train_test) %>%
+  bind_cols(train_test) %>%
+  metrics(truth = survived, estimate = .pred_class)
+```
+
+```{r}
+model2 %>%
+  predict(train_test) %>%
+  bind_cols(train_test) %>%
+  conf_mat(truth = survived, estimate = .pred_class)
+```
+
+```{r}
+model2 %>%
+  predict(train_test, type = "prob") %>%
+  bind_cols(train_test) %>%
+  ggplot() +
+  geom_density(aes(x = .pred_1, fill = survived), 
+               alpha = 0.5)
+```
+
+### Model 3: Random Forest
+
+We use the number "100" to create a random forest model with 100 different decision trees, which work together to make more reliable and accurate predictions than a single tree could.
+
+```{r}
+model3 <- rand_forest(trees = 100) %>% 
+  set_engine("ranger") %>%
+  set_mode("classification") %>%
+  fit(survived ~ ., data = train_main)
+```
+
+```{r}
+model3 %>%
+  predict(train_test) %>%
+  bind_cols(train_test) %>%
+  metrics(truth = survived, estimate = .pred_class)
+```
+
+```{r}
+model3 %>%
+  predict(train_test) %>%
+  bind_cols(train_test) %>%
+  conf_mat(truth = survived, estimate = .pred_class)
+```
+
+```{r}
+model3 %>%
+  predict(train_test, type = "prob") %>%
+  bind_cols(train_test) %>%
+  ggplot() +
+  geom_density(aes(x = .pred_1, fill = survived), alpha = 0.5)
+```
+
+### Model 4: GLM
+
+We use a penalty of 0.001 to reduce overfitting by making the model's coefficients smaller, and a mixture value of 0.5 to balance between L1 and L2 regularization, aiming for a model that is both accurate and generalized well.
+
+```{r}
+model4 <- logistic_reg(penalty = 0.001, mixture = 0.5) %>% 
+  set_engine("glmnet") %>%
+  set_mode("classification") %>%
+  fit(survived ~ ., data = train_main)
+```
+
+```{r}
+model4 %>%
+  predict(train_test) %>%
+  bind_cols(train_test) %>%
+  metrics(truth = survived, estimate = .pred_class)
+```
+
+```{r}
+model4 %>%
+  predict(train_test) %>%
+  bind_cols(train_test) %>%
+  conf_mat(truth = survived, estimate = .pred_class)
+```
+
+```{r}
+model4 %>%
+  predict(train_test, type = "prob") %>%
+  bind_cols(train_test) %>%
+  ggplot() +
+  geom_density(aes(x = .pred_1, fill = survived), 
+               alpha = 0.5)
+```
+
+### Model 5: Naive Bayes
+
+We use Laplace = 1 in the naive Bayes model to avoid the problem of zero probability for unseen data, by adding a small, positive number to each count, ensuring that every possible outcome has a chance of occurring.
+
+```{r}
+model5 <- naive_Bayes(Laplace = 1) %>% 
+  set_engine("klaR") %>%
+  set_mode("classification") %>%
+  fit(survived ~ ., data = train_main)
+```
+
+```{r}
+model5 %>%
+  predict(train_test) %>%
+  bind_cols(train_test) %>%
+  metrics(truth = survived, estimate = .pred_class)
+```
+
+```{r}
+model5 %>%
+  predict(train_test) %>%
+  bind_cols(train_test) %>%
+  conf_mat(truth = survived, estimate = .pred_class)
+```
+
+```{r}
+model5 %>%
+  predict(train_test, type = "prob") %>%
+  bind_cols(train_test) %>%
+  ggplot() +
+  geom_density(aes(x = .pred_1, fill = survived), 
+               alpha = 0.5)
+```
+
+##ROC Plot of all the Models
+
+```{r}
+train_test$survived <- factor(train_test$survived)
+
+roc_data <- list(
+  "Null" = model0 %>% 
+    predict(train_test, type = "prob") %>%
+    bind_cols(train_test) %>%
+    roc_curve(survived, .pred_0) %>%
+    mutate(Model = "Null"),
+  
+  "kNN" = model1 %>% 
+    predict(train_test, type = "prob") %>%
+    bind_cols(train_test) %>%
+    roc_curve(survived, .pred_0) %>%
+    mutate(Model = "kNN"),
+  
+  "C5.0" = model2 %>% 
+    predict(train_test, type = "prob") %>%
+    bind_cols(train_test) %>%
+    roc_curve(survived, .pred_0) %>%
+    mutate(Model = "C5.0"),
+  
+  "Random Forest" = model3 %>% 
+    predict(train_test, type = "prob") %>%
+    bind_cols(train_test) %>%
+    roc_curve(survived, .pred_0) %>%
+    mutate(Model = "Random Forest"),
+  
+  "GLM" = model4 %>% 
+    predict(train_test, type = "prob") %>%
+    bind_cols(train_test) %>%
+    roc_curve(survived, .pred_0) %>%
+    mutate(Model = "GLM"),
+  
+  # Ensure you refer to the correct variable for your Naive Bayes model
+  "Naive Bayes" = model5 %>% 
+    predict(train_test, type = "prob") %>%
+    bind_cols(train_test) %>%
+    roc_curve(survived, .pred_0) %>%
+    mutate(Model = "Naive Bayes")
+) %>% bind_rows()
+
+ggplot(roc_data, aes(x = 1 - specificity, y = sensitivity, color = Model)) +
+  geom_line() +
+  geom_abline(linetype = "dashed") +
+  labs(title = "ROC Curves of all the Models", x = "False Positive Rate", y = "True Positive Rate") +
+  theme_minimal() +
+  scale_color_viridis_d()
+```
+
+##Cross-Validation :
+
+In a comparison of various models on the Titanic dataset, the Null Model showed the lowest accuracy at 57%, indicating a basic starting point. The KNN Model, which predicts based on the closest data points, achieved 66.5% accuracy, while the Boosted C5.0 Model, aimed at enhancing predictions, reached 68.1%. The Random Forest Model, utilizing multiple decision trees, slightly outperformed it with 68.71% accuracy. Logistic Regression, modeling the probability of outcomes, had a 65.36% accuracy. The best performance was observed with the Naive Bayes Model, which assumes independence among features, achieving the highest accuracy of 70.4%. This indicates that, for this dataset, the **Naive Bayes Model** was the most effective in making accurate predictions.  
+
+```{r}
+final_recipe <- recipe(survived ~ ., data = titanic_train) %>%
+  step_rm(pclass, sex, embarked) %>%  
+  step_nzv(all_predictors()) %>%      
+  step_impute_mean(age) %>%           
+  prep(training = titanic_train) 
+titanic_train1 <- juice(final_recipe)
+titanic_train1$survived <- as.factor(titanic_train1$survived)
+Final_model <- naive_Bayes(Laplace = 1) %>% 
+  set_engine("klaR") %>%
+  set_mode("classification") %>%
+  fit(survived ~ ., data = titanic_train1)
+```
+
+Since the accuracy of the Naive Bayes model is higher i had build the Final_model with the titanic_train dataset. Inorder to produce predictions for titanic_test dataset, This dataset doesn't contain Passenger Id and Survived variable so we can't the predict the output using titanic_train dataset instead we can s[plit the original training dataset and split into training and testing.
