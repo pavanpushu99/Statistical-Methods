@@ -1,0 +1,323 @@
+---
+title: "STAT 652 : Homework 4"
+author: "Pavan Malapati"
+format: html
+editor: visual
+---
+
+###11.7 Exercises: Problem 6a
+
+Run Models 3. Run Models 5. Neural network using training and test datasets, as described in part c of the problem.
+
+The ability to get a good night’s sleep is correlated with many positive health outcomes. The NHANES data set contains a binary variable SleepTrouble that indicates whether each person has trouble sleeping.
+
+For each of the following models:
+
+-   Build a classifier for SleepTrouble
+-   Report its effectiveness on the NHANES training data
+-   Make an appropriate visualization of the model
+-   Interpret the results. What have you learned about people’s sleeping habits?
+
+You may use whatever variables you like, except for SleepHrsNight.
+
+-   Neural Network
+
+First separate the NHANES data set uniformly at random into 75% training and 25% testing sets.
+
+Using training and testing sets is useful for trying to assess the performance of a model on new data. The training set is used to fit the model, and the testing set is used to evaluate its performance on new data.
+
+The data was cleaned by removing columns with a high percentage of missing values. The training and testing sets were created using the initial_split function. The training set contains 75% of the data and the testing set contains 25% of the data. Then rows of data were removed when the target variable was missing.
+
+The accuracy of the models is as follows:
+
+###Solution
+
+| Accuracy | Null Model | Neural Network |
+|----------|------------|----------------|
+| Training |   0.72     |     0.74       |
+| Testing  |   0.74     |     0.76       |
+
+The table compares the performance of a null model and a neural network model on a dataset regarding sleep trouble, using the NHANES dataset. The null model, which serves as a baseline, achieves an accuracy of 0.72 and 0.74 on the training and testing datasets, respectively. In contrast, the neural network model, implemented using the `nnet` package due to its simplicity and faster execution compared to `keras`, shows a slight improvement in performance with accuracies of 0.74 and 0.76 on the training and testing datasets, respectively.
+
+###Codes and Comments :
+
+##Load necessary packages
+
+```{r}
+library(pacman)
+p_load(tidyverse, tidymodels, yardstick, skimr, nnet, glmnet, NHANES, Amelia, naniar,discrim, ggplot2, nnet, caret, yardstick)
+```
+
+##Loading the Data
+
+```{r}
+data(NHANES)
+head(NHANES)
+help("NHANES")
+```
+
+##Exploring the Data
+
+```{r}
+Amelia::missmap(NHANES, main = "Missing values vs observed")
+```
+
+## Cleaning the Data
+
+```{r}
+NHANES2 <- NHANES |> select_if(~mean(!is.na(.)) > 0.5)
+NHANES2 <- NHANES2 %>% select(SleepTrouble,Age,Gender,Depressed,Smoke100n,Poverty,BMI,BPDiaAve)
+Amelia::missmap(NHANES2, main = "Missing values vs observed")
+NHANES2 <- na.omit(NHANES2)
+```
+
+##Splitting the Data into Training and Testing Datasets
+
+```{r}
+set.seed(100)
+parts <- NHANES2 |> initial_split(prop = 0.75)
+train <- parts %>% training()
+test <- parts %>% testing()
+train |> ggplot(aes(x = SleepTrouble)) + geom_bar() + labs(title = "SleepTrouble in Training Data")
+test |> ggplot(aes(x = SleepTrouble)) + geom_bar() + labs(title = "SleepTrouble in Testing Data")
+```
+
+###Model 0 : Null Model
+
+```{r}
+model0 <- null_model()  |>  
+  set_engine("parsnip")  |>  
+  set_mode("classification") |> 
+  fit(SleepTrouble ~ 1 , data = train)
+```
+
+##Accuracy and Confusion Matrix of Training Data
+
+```{r}
+model0  %>%
+  predict(train) %>%
+  bind_cols(train) %>%
+  metrics(truth = SleepTrouble, estimate = .pred_class)
+```
+
+```{r}
+model0 %>%
+  predict(train) %>%
+  bind_cols(train) %>%
+  conf_mat(truth = SleepTrouble, estimate = .pred_class)
+```
+
+##Accuracy and Confusion Matrix of Testing Data
+
+```{r}
+model0  %>%
+  predict(test) %>%
+  bind_cols(test) %>%
+  metrics(truth = SleepTrouble, estimate = .pred_class)
+```
+
+```{r}
+model0 %>%
+  predict(test) %>%
+  bind_cols(test) %>%
+  conf_mat(truth = SleepTrouble, estimate = .pred_class)
+```
+
+###Model 1 : Neural Network
+
+Actually, The professor advised to use the `keras` package for building a neural network model because it's powerful and versatile, but it requires working with Python and was taking too long to run. So, I switched to using the `nnet` package in R instead, which is simpler and faster for our needs.
+
+```{r}
+set.seed(143)
+model1 <- nn_model <- nnet(SleepTrouble ~ ., data = train, size = 5, linout = FALSE, decay = 0.01, maxit = 200)
+```
+
+##Accuracy and Confusion Matrix of Training Data
+
+```{r}
+model1 %>%
+  predict(newdata = train, type = "class") %>%
+  tibble(.pred_class = .) %>%
+  mutate(.pred_class = factor(.pred_class, levels = levels(train$SleepTrouble))) %>%
+  bind_cols(train) %>%
+  metrics(truth = SleepTrouble, estimate = .pred_class)
+```
+
+```{r}
+model1 %>%
+  predict(newdata = train, type = "class") %>%
+  tibble(.pred_class = .) %>%
+  mutate(.pred_class = factor(.pred_class, levels = levels(train$SleepTrouble))) %>%
+  bind_cols(train) %>%
+  conf_mat(truth = SleepTrouble, estimate = .pred_class)
+```
+
+##Accuracy and Confusion Matrix of Testing Data
+
+```{r}
+model1 %>%
+  predict(newdata = test, type = "class") %>%
+  tibble(.pred_class = .) %>%
+  mutate(.pred_class = factor(.pred_class, levels = levels(test$SleepTrouble))) %>%
+  bind_cols(test) %>%
+  metrics(truth = SleepTrouble, estimate = .pred_class)
+```
+
+```{r}
+model1 %>%
+  predict(newdata = test, type = "class") %>%
+  tibble(.pred_class = .) %>%
+  mutate(.pred_class = factor(.pred_class, levels = levels(test$SleepTrouble))) %>%
+  bind_cols(test) %>%
+  conf_mat(truth = SleepTrouble, estimate = .pred_class)
+```
+###11.7 Exercises: Problem 6b
+
+Run Models 4. Random Forest, 6. LASSO using training and test datasets, as described in part c of the problem.
+
+The ability to get a good night’s sleep is correlated with many positive health outcomes. The NHANES data set contains a binary variable SleepHrsNight that indicates number of hours person sleeps each night
+
+For each of the following models:
+
+-   Build a classifier for SleepTrouble
+-   Report its effectiveness on the NHANES training data
+-   Make an appropriate visualization of the model
+-   Interpret the results. What have you learned about people’s sleeping habits?
+
+Use the quantitative response variable SleepHrsNight. Build and interpret the following models:
+
+-   Random Forest
+-   LASSO
+
+First separate the NHANES data set uniformly at random into 75% training and 25% testing sets.
+
+Using training and testing sets is useful for trying to assess the performance of a model on new data. The training set is used to fit the model, and the testing set is used to evaluate its performance on new data.
+
+The data was cleaned by removing columns with a high percentage of missing values. The training and testing sets were created using the initial_split function. The training set contains 75% of the data and the testing set contains 25% of the data. Then rows of data were removed when the target variable was missing.
+
+The Root Mean Square Error (RMSE) of the models is as follows:
+
+###Solution :
+
+| RMSE     | Random Forest | LASSO |
+|----------|---------------|-------|
+| Training | 0.775         | 1.308 |
+| Testing  | 1.107         | 1.314 |
+
+The two models, Random Forest and LASSO, were used to predict the number of sleep hours using health-related data from the NHANES dataset. The Random Forest model performed better than the LASSO model, with lower Root Mean Square Error (RMSE) values of 0.775 for training and 1.107 for testing, compared to LASSO's 1.308 for training and 1.314 for testing. RMSE was chosen as the metric for evaluation instead of accuracy because the target variable, SleepHrsNight, is continuous, making RMSE a more appropriate measure for assessing the prediction errors of the models. Lower RMSE values indicate better model performance, suggesting that the Random Forest model was more effective at predicting sleep hours accurately.
+
+###Codes and Comments
+
+#Cleaning the Data
+
+```{r}
+NHANES3 <- NHANES |> select_if(~mean(!is.na(.)) > 0.5)
+NHANES3 <- NHANES3 %>% select(SleepHrsNight,Age,Gender,Depressed,Smoke100n,Poverty,BMI,BPDiaAve)
+Amelia::missmap(NHANES3, main = "Missing values vs observed")
+NHANES3 <- na.omit(NHANES3)
+```
+
+##Splitting the data into training and testing
+
+```{r}
+set.seed(100)
+parts1 <- NHANES3 |> initial_split(prop = 0.75)
+train1 <- parts1 %>% training()
+test1 <- parts1 %>% testing()
+train1 |> ggplot(aes(x = SleepHrsNight)) + geom_bar() + labs(title = "SleepHrsNight in Training Data")
+test1 |> ggplot(aes(x = SleepHrsNight)) + geom_bar() + labs(title = "SleepHrsNight in Testing Data")
+```
+
+###Model 1 : Random Forest
+
+```{r}
+model_1 <- rand_forest(trees = 100) %>%
+  set_engine("ranger") %>%
+  set_mode("regression") %>%
+  fit(SleepHrsNight ~ Age+Gender+Depressed+Smoke100n+Poverty+BMI+BPDiaAve, data = train1)
+```
+
+##RMSE and Scatter Plot of Training Data
+
+```{r}
+model_1%>%
+  predict(train1) %>%
+  bind_cols(train1) %>%
+  rmse(truth = SleepHrsNight, estimate = .pred)
+```
+
+```{r}
+predictions_1 <- predict(model_1, train1) %>%
+  bind_cols(train1)
+
+ggplot(predictions_1, aes(x = .pred, y = SleepHrsNight)) +
+  geom_point(aes(color = SleepHrsNight), alpha = 0.6) + 
+  geom_smooth(method = "lm", se = FALSE, color = "orange") +
+  labs(x = "Predicted Sleep Hours", y = "Actual Sleep Hours", title = "Comparison of Predicted and Actual Sleep Hours (Training Data)")
+```
+
+##RMSE and Scatter Plot of Testing Data
+
+```{r}
+model_1%>%
+  predict(test1) %>%
+  bind_cols(test1) %>%
+  rmse(truth = SleepHrsNight, estimate = .pred)
+```
+
+```{r}
+predictions_2 <- predict(model_1, test1) %>%
+  bind_cols(test1)
+
+ggplot(predictions_2, aes(x = .pred, y = SleepHrsNight)) +
+  geom_point(aes(color = SleepHrsNight), alpha = 0.6) + 
+  geom_smooth(method = "lm", se = FALSE, color = "orange") +
+  labs(x = "Predicted Sleep Hours", y = "Actual Sleep Hours", title = "Comparison of Predicted and Actual Sleep Hours (Testing Data)")
+```
+
+###Model 2 : LASSO
+
+```{r}
+model_2 <- linear_reg(penalty = 0.01, mixture = 1) %>%
+  set_engine("glmnet") %>%
+  set_mode("regression") %>%
+  fit(SleepHrsNight ~ Age+Gender+Depressed+Smoke100n+Poverty+BMI+BPDiaAve, data = train1)
+```
+
+##RMSE and Scatter Plot of Training Data
+
+```{r}
+model_2%>%
+  predict(train1) %>%
+  bind_cols(train1) %>%
+  rmse(truth = SleepHrsNight, estimate = .pred)
+```
+
+```{r}
+predictions_3 <- predict(model_2, train1) %>%
+  bind_cols(train1)
+
+ggplot(predictions_3, aes(x = .pred, y = SleepHrsNight)) +
+  geom_point(aes(color = SleepHrsNight), alpha = 0.6) + 
+  geom_smooth(method = "lm", se = FALSE, color = "orange") +
+  labs(x = "Predicted Sleep Hours", y = "Actual Sleep Hours", title = "Comparison of Predicted and Actual Sleep Hours (Training Data)")
+```
+
+##RMSE and Scatter Plot of Testing Data
+
+```{r}
+model_2%>%
+  predict(test1) %>%
+  bind_cols(test1) %>%
+  rmse(truth = SleepHrsNight, estimate = .pred)
+```
+
+```{r}
+predictions_4 <- predict(model_2, test1) %>%
+  bind_cols(test1)
+
+ggplot(predictions_4, aes(x = .pred, y = SleepHrsNight)) +
+  geom_point(aes(color = SleepHrsNight), alpha = 0.6) + 
+  geom_smooth(method = "lm", se = FALSE, color = "orange") +
+  labs(x = "Predicted Sleep Hours", y = "Actual Sleep Hours", title = "Comparison of Predicted and Actual Sleep Hours (Testing Data)")
+```

@@ -1,0 +1,168 @@
+---
+title: "Stat 652 : Final Exam"
+author: "Pavan Malapati"
+format: html
+editor: visual
+---
+
+1.What are the important variables identified by the Boruta algorithm from the **Ozone** data?
+
+**Solution :**
+In the ozone data, The important attributes are **V1,V5,V7,V8,V9,V10,V11,V12,V13**. The unimportant attributes are **V2,V3,V6**. Though V9 has more missing values i don't want to remove the total attribute instead i want to clean the data in all the attributes.
+
+Load and Install Necessary packages for the entire code
+
+```{r}
+library(pacman)
+p_load(tidyverse, janitor, naniar, DataExplorer, Boruta, mlbench, titanic)
+```
+
+Loading the Ozone data and checking the structure of the data to analyse the data.
+
+```{r}
+data(Ozone)
+str(Ozone)
+```
+
+The Ozone data consists of 366 observations with 13 variables.V1,V2,V3 are factor variables where rest of all the variables are numeric so change the datatype of the V1,V2,V3 to numeric.
+
+```{r}
+Ozone <- Ozone %>% mutate(
+  V1 = as.numeric(V1),
+  V2 = as.numeric(V2),
+  V3 = as.numeric(V3)
+)
+str(Ozone)
+```
+
+All variables are of numeric datatype.
+
+Now we analyse the missing values and completeness of the features in the data.
+
+```{r}
+vis_miss(Ozone)
+gg_miss_var(Ozone)
+gg_miss_var(Ozone, show_pct = TRUE)
+```
+
+In the overall data we can see that there is only 4.3% percent of missing data. And that too it is clear that majority of the missing data is in V9 follwed by V7,V10,V12,V5,V4 and V8.
+
+```{r}
+Ozone <- drop_na(Ozone)
+str(Ozone)
+vis_miss(Ozone)
+gg_miss_var(Ozone)
+gg_miss_var(Ozone, show_pct = TRUE)
+```
+
+The data is cleaned you can check that in the structure of ozone data before it was 366 observations in 13 variables now after cleaning it got reduced to 203 observations in 13 variables Even the missing percentage of values is also zero.
+
+**Boruta Algorithm** The target variable in the ozone data is V4 = Daily maximum one-hour-average ozone reading and setting ntree as 500 defines the number of random forests boruta algorithm uses for its analysis.
+
+```{r}
+set.seed(143)
+Boruta.Ozone <- Boruta(V4 ~ ., data = Ozone, doTrace = 2, ntree = 500)
+Boruta.Ozone
+```
+
+This algorithm totally performed total 30 iterations for the Ozone Data
+
+```{r}
+plot(Boruta.Ozone,cex.axis = 0.6)
+```
+
+The blue box represents the shadow attributes which shows the minimum,average and maximum importance for the shadow attributes. The green boxes are the important attributes whereas red boxes are unimportant attributes.
+
+```{r}
+getConfirmedFormula(Boruta.Ozone)
+```
+
+This function retrieves the confirmed attributes selected by Boruta algorithm for predicting ozone levels in the dataset.
+
+```{r}
+attStats(Boruta.Ozone)
+```
+
+This function provides attribute importance statistics calculated by Boruta algorithm for each feature in predicting ozone levels.
+
+```{r}
+plotImpHistory(Boruta.Ozone)
+```
+
+This function generates a plot showing the history of feature importance over iterations of Boruta algorithm, aiding in understanding the selection process.
+
+2.What are the important variables identified by the Boruta algorithm from the **titanic training** data?
+
+**Solution :**
+The important attributes of the Titanic Train data are **Embarked**, **Age**, **Cabin**, **Fare**, **Name**, **Ticket**, **Parch**, **SibSp**, **Sex**, **Pclass**. Although later after using TentativeRoughFix the attribute **Name** is also classified under important attribute before it was tentative attribute. The unimportant attribute is **PassengerId**.
+
+Loading the titanic train data and checking the structure of the data to analyse the data.
+
+```{r}
+data(titanic_train)
+str(titanic_train)
+```
+
+The titanic train has total 891 observations and 12 variables. There are various types of datatypes for different variables. Now convert the necessary datatypes into factors.
+
+```{r}
+titanic_train$Survived <- as.factor(titanic_train$Survived)
+titanic_train$Pclass <- as.factor(titanic_train$Pclass)
+titanic_train$Sex <- as.factor(titanic_train$Sex)
+titanic_train$Embarked <- as.factor(titanic_train$Embarked)
+str(titanic_train)
+```
+
+Now the datatypse of variables are okay.Now we analyse the missing values and completeness of the features in the data.
+
+```{r}
+vis_miss(titanic_train)
+gg_miss_var(titanic_train)
+gg_miss_var(titanic_train, show_pct = TRUE)
+```
+
+In the Overall Data, We can see that there is only 1.7% missing data. Age variable is the main cause for the missing values.
+
+```{r}
+titanic_train <- drop_na(titanic_train)
+str(titanic_train)
+vis_miss(titanic_train)
+gg_miss_var(titanic_train)
+gg_miss_var(titanic_train, show_pct = TRUE)
+```
+
+The data is cleaned thoroughly you can check that in the structure of ozone data before it was 891 observations in 12 variables now after cleaning it got reduced to 714 observations in 13 variables Even the missing percentage of values is also zero.
+
+**Boruta Algorithm :** Survived variable is the response variable.
+
+```{r}
+set.seed(143)
+Boruta.Titanic <- Boruta(Survived ~ ., data = titanic_train, doTrace = 2, ntree = 500)
+Boruta.Titanic
+```
+
+The boruta algorithm totally performed 99 iterations for the titanic_train data.
+
+```{r}
+plot(Boruta.Titanic,cex =0.6)
+```
+
+The blue box represents the shadow attributes which shows the minimum,average and maximum importance for the shadow attributes. The green boxes are the important attributes whereas red boxes are unimportant attributes and Yellow box are the tentative attributes which means that after 99 iterations also it doesn't fall under important and unimportant category.There is a different procedure to create tentative attributes as shown below. So far boruta algorithm classified 9 important attributes, 1 unimportant attribute and 1 tentative attribute.
+
+```{r}
+TentativeRoughFix(Boruta.Titanic)
+```
+
+Before the "Name" is an tentative attribute, After performing this function the tentative attribute is now classified under important attribute.
+
+```{r}
+getConfirmedFormula(Boruta.Titanic)
+```
+
+```{r}
+attStats(Boruta.Titanic)
+```
+
+```{r}
+plotImpHistory(Boruta.Titanic)
+```
